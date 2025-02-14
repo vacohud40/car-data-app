@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.express as px
 
 # Load your data
-df = pd.read_csv(r"C:\Users\vacoh\car-data-app\vehicles_us.csv")
+df = pd.read_csv('vehicles_us.csv')
 
 # Convert date_posted to datetime
 df['date_posted'] = pd.to_datetime(df['date_posted'])
