@@ -1,24 +1,31 @@
-# Importing necessary libraries
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-# Load your data
+# Load data
 df = pd.read_csv('vehicles_us.csv')
+
+# Data Cleaning and Preprocessing 
 
 # Convert date_posted to datetime
 df['date_posted'] = pd.to_datetime(df['date_posted'])
 
-# Drop the constant column
-df.drop('is_4wd', axis=1, inplace=True)
+# Drop the constant column 
+if 'is_4wd' in df.columns:  
+    df.drop('is_4wd', axis=1, inplace=True)
 
 # Impute missing values in model_year with the median
 median_model_year = df['model_year'].median()
 df['model_year'] = df['model_year'].fillna(median_model_year)
 
-# Impute missing values in cylinders with the median
-median_cylinders = df['cylinders'].median()
-df['cylinders'] = df['cylinders'].fillna(median_cylinders)
+# Impute missing values in cylinders using groupby median
+median_cylinders_by_model_year = df.groupby(['model', 'model_year'])['cylinders'].transform('median')
+df['cylinders'].fillna(median_cylinders_by_model_year, inplace=True)
+
+# Impute any REMAINING NaNs in cylinders with the overall median 
+overall_median_cylinders = df['cylinders'].median()
+df['cylinders'].fillna(overall_median_cylinders, inplace=True)
+
 
 # Impute missing values in odometer with the median
 median_odometer = df['odometer'].median()
@@ -28,8 +35,13 @@ df['odometer'] = df['odometer'].fillna(median_odometer)
 mode_paint_color = df['paint_color'].mode()[0]
 df['paint_color'] = df['paint_color'].fillna(mode_paint_color)
 
+
+
 st.title("Car Advertisement Data Analysis")
 st.write("Explore car data and trends.")
+
+# Expensive Vehicle Filter Checkbox
+exclude_expensive = st.checkbox("Exclude Vehicles Over $25,000")
 
 # --------------------------------------------------
 # Filters Section
@@ -73,9 +85,7 @@ odometer_range = st.slider("Odometer Range", min_odometer, max_odometer, (min_od
 
 
 # --------------------------------------------------
-# Apply Filters
-# --------------------------------------------------
-
+# Apply Filters (Modified to include the checkbox)
 filtered_df = df[
     df['model'].isin(selected_models) &
     df['fuel'].isin(selected_fuel_types) &
@@ -87,18 +97,23 @@ filtered_df = df[
     (df['odometer'] >= odometer_range[0]) & (df['odometer'] <= odometer_range[1])
 ]
 
+if exclude_expensive:
+    filtered_df = filtered_df[filtered_df['price'] <= 25000]
+
 # --------------------------------------------------
-# Charts Section (Use filtered_df)
+# Charts Section 
 # --------------------------------------------------
 
 # 1. Price Distribution by Model
 st.subheader("Price Distribution by Model")
 fig_price_model = px.histogram(filtered_df, x="price", color="model", title="Price Distribution by Model (Filtered)")
+fig_price_model.update_layout(yaxis_title="Number of Vehicles", xaxis_title="Price") # Improved Axis label
 st.plotly_chart(fig_price_model)
 
 # 2. Distribution of Price by Vehicle Type
 st.subheader("Price Distribution by Vehicle Type")
 fig_price_by_type = px.box(filtered_df, x="type", y="price", title="Price Distribution by Vehicle Type (Filtered)")
+fig_price_by_type.update_layout(yaxis_title="Price", xaxis_title="Vehicle Type") # Improved Axis label
 st.plotly_chart(fig_price_by_type)
 
 # 3. Count of Vehicles by Model (Top 10)
@@ -106,21 +121,25 @@ st.subheader("Top 10 Vehicle Models")
 top_10_models = filtered_df['model'].value_counts().nlargest(10).reset_index()
 top_10_models.columns = ['model', 'count']
 fig_model_count = px.bar(top_10_models, x="model", y="count", title="Top 10 Vehicle Models (Filtered)")
+fig_model_count.update_layout(yaxis_title="Number of Vehicles", xaxis_title="Vehicle Model") # Improved Axis label
 st.plotly_chart(fig_model_count)
 
 # 4. Price vs. Odometer (Scatter Plot)
 st.subheader("Price vs. Odometer")
 fig_price_odometer = px.scatter(filtered_df, x="odometer", y="price", color="type", title="Price vs. Odometer (Filtered)")
+fig_price_odometer.update_layout(yaxis_title="Price", xaxis_title="Odometer Reading") # Improved Axis label
 st.plotly_chart(fig_price_odometer)
 
 # 5. Model Year Distribution
 st.subheader("Model Year Distribution")
 fig_model_year = px.histogram(filtered_df, x="model_year", title="Model Year Distribution (Filtered)")
+fig_model_year.update_layout(yaxis_title="Number of Vehicles", xaxis_title="Model Year") # Improved Axis label
 st.plotly_chart(fig_model_year)
 
 # 6. Condition Distribution
 st.subheader("Condition Distribution")
 fig_condition = px.bar(filtered_df, x="condition", title="Condition Distribution (Filtered)")
+fig_condition.update_layout(yaxis_title="Number of Vehicles", xaxis_title="Condition") # Improved Axis label
 st.plotly_chart(fig_condition)
 
 
